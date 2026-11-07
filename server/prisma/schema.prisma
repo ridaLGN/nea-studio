@@ -202,7 +202,8 @@ model Service {
   name            String
   slug            String            @unique
   description     String?
-  priceMad        Decimal           @db.Decimal(10, 2)
+  priceMad        Decimal           @db.Decimal(10, 2) // price, or lower bound of a range
+  priceMaxMad     Decimal?          @db.Decimal(10, 2) // upper bound for "400–450 DH" style prices
   durationMinutes Int
   imageUrl        String?
   isActive        Boolean           @default(true)

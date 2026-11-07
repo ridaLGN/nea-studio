@@ -13,7 +13,8 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:reset": "prisma migrate reset --force",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "db:import-menu": "tsx prisma/menu-neastudio.ts"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"

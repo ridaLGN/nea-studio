@@ -203,7 +203,7 @@ manageRouter.put('/opening-hours', requirePermission('settings.manage'), async (
 // =====================================================================
 manageRouter.get('/services', async (_req, res) => {
   const list = await prisma.service.findMany({ include: { category: true, employees: { select: { employeeId: true } }, _count: { select: { appointments: true } } }, orderBy: [{ category: { sortOrder: 'asc' } }, { sortOrder: 'asc' }] });
-  res.json(list.map((s) => ({ ...s, priceMad: num(s.priceMad), employees: s.employees.map((e) => e.employeeId), appointmentCount: s._count.appointments })));
+  res.json(list.map((s) => ({ ...s, priceMad: num(s.priceMad), priceMaxMad: s.priceMaxMad == null ? null : num(s.priceMaxMad), employees: s.employees.map((e) => e.employeeId), appointmentCount: s._count.appointments })));
 });
 
 const serviceSchema = z.object({
@@ -211,6 +211,7 @@ const serviceSchema = z.object({
   name: z.string().trim().min(2).max(100),
   description: z.string().max(1000).nullish(),
   priceMad: z.number().min(0).max(100000),
+  priceMaxMad: z.number().min(0).max(100000).nullish(),
   durationMinutes: z.number().int().min(5).max(600),
   imageUrl: z.string().max(500).nullish(),
   isActive: z.boolean().optional(),
@@ -219,20 +220,21 @@ const serviceSchema = z.object({
 });
 manageRouter.post('/services', requirePermission('services.manage'), async (req, res) => {
   const b = parse(serviceSchema, req.body);
-  const { employeeIds, priceMad, ...data } = b;
+  const { employeeIds, priceMad, priceMaxMad, ...data } = b;
+  if (priceMaxMad != null && priceMaxMad < priceMad) throw badRequest('The maximum price must be at least the minimum price');
   let slug = slugify(b.name);
   if (await prisma.service.findUnique({ where: { slug } })) slug += '-' + randomBytes(2).toString('hex');
-  const s = await prisma.service.create({ data: { ...data, slug, priceMad: dec(priceMad), employees: employeeIds ? { create: employeeIds.map((employeeId) => ({ employeeId })) } : undefined } });
+  const s = await prisma.service.create({ data: { ...data, slug, priceMad: dec(priceMad), priceMaxMad: priceMaxMad == null ? null : dec(priceMaxMad), employees: employeeIds ? { create: employeeIds.map((employeeId) => ({ employeeId })) } : undefined } });
   await audit({ actorUserId: req.user!.id, action: 'SERVICE_CREATED', entityType: 'Service', entityId: s.id, details: { name: s.name, priceMad }, ip: req.ip });
   res.status(201).json({ ...s, priceMad: num(s.priceMad) });
 });
 manageRouter.patch('/services/:id', requirePermission('services.manage'), async (req, res) => {
   const b = parse(serviceSchema.partial(), req.body);
-  const { employeeIds, priceMad, ...data } = b;
+  const { employeeIds, priceMad, priceMaxMad, ...data } = b;
   const before = await prisma.service.findUnique({ where: { id: (req.params.id as string) } });
   if (!before) throw notFound('Service');
   const s = await prisma.$transaction(async (tx) => {
-    const u = await tx.service.update({ where: { id: (req.params.id as string) }, data: { ...data, isDemo: false, ...(priceMad != null ? { priceMad: dec(priceMad) } : {}) } });
+    const u = await tx.service.update({ where: { id: (req.params.id as string) }, data: { ...data, isDemo: false, ...(priceMad != null ? { priceMad: dec(priceMad) } : {}), ...(priceMaxMad !== undefined ? { priceMaxMad: priceMaxMad == null ? null : dec(priceMaxMad) } : {}) } });
     if (employeeIds) {
       await tx.employeeService.deleteMany({ where: { serviceId: u.id } });
       await tx.employeeService.createMany({ data: employeeIds.map((employeeId) => ({ serviceId: u.id, employeeId })) });

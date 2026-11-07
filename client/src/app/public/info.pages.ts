@@ -54,15 +54,14 @@ export class AboutPage {
       <div class="mt-10 columns-1 gap-4 sm:columns-2 lg:columns-3 [&>*]:mb-4">
         @for (p of photos; track p.src) {
           <button class="block w-full break-inside-avoid overflow-hidden rounded-[1.5rem] text-left" (click)="open.set(p.src)">
-            <ui-photo [class]="p.h + ' transition duration-500 hover:scale-[1.03]'" [src]="p.src" [tone]="p.tone" [label]="p.src.replace('/images/', '')" />
+            <ui-photo [class]="p.h + ' transition duration-500 hover:scale-[1.03]'" [src]="p.src" [tone]="p.tone" alt="NÉA STUDIO" />
           </button>
         }
       </div>
-      <p class="mt-6 text-sm text-taupe">Add the salon photographs to <code>client/public/images/</code> with the file names shown to replace these placeholders.</p>
     </section>
     @if (open()) {
       <div class="overlay flex items-center justify-center p-4" (click)="open.set(null)">
-        <ui-photo class="max-h-[85vh] w-full max-w-4xl overflow-hidden rounded-3xl aspect-[4/3]" [src]="open()!" />
+        <img [src]="open()!" alt="NÉA STUDIO" class="max-h-[85vh] max-w-full rounded-3xl object-contain shadow-2xl" />
         <button class="absolute right-6 top-6 icon-btn bg-white"><ui-icon name="x" /></button>
       </div>
     }
@@ -71,14 +70,28 @@ export class AboutPage {
 export class GalleryPage {
   open = signal<string | null>(null);
   photos: { src: string; h: string; tone: 'warm' | 'cream' | 'deep' }[] = [
-    { src: '/images/salon-hero.jpg', h: 'h-96', tone: 'warm' },
-    { src: '/images/salon-reception.jpg', h: 'h-64', tone: 'deep' },
-    { src: '/images/salon-interior.jpg', h: 'h-80', tone: 'cream' },
-    { src: '/images/products-1.jpg', h: 'h-72', tone: 'warm' },
+    { src: '/images/salon-hero.jpg', h: 'h-[28rem]', tone: 'warm' },
     { src: '/images/salon-2.jpg', h: 'h-96', tone: 'cream' },
-    { src: '/images/salon-3.jpg', h: 'h-64', tone: 'deep' },
-    { src: '/images/products-2.jpg', h: 'h-80', tone: 'cream' },
-    { src: '/images/products-3.jpg', h: 'h-72', tone: 'warm' },
+    { src: '/images/gallery-hallway.jpg', h: 'h-64', tone: 'cream' },
+    { src: '/images/salon-interior.jpg', h: 'h-[26rem]', tone: 'cream' },
+    { src: '/images/salon-reception.jpg', h: 'h-96', tone: 'deep' },
+    { src: '/images/instagram-1.jpg', h: 'h-96', tone: 'warm' },
+    { src: '/images/gallery-lounge.jpg', h: 'h-[26rem]', tone: 'deep' },
+    { src: '/images/salon-3.jpg', h: 'h-96', tone: 'cream' },
+    { src: '/images/gallery-marble.jpg', h: 'h-64', tone: 'deep' },
+    { src: '/images/gallery-vase.jpg', h: 'h-96', tone: 'cream' },
+    { src: '/images/instagram-4.jpg', h: 'h-96', tone: 'cream' },
+    { src: '/images/gallery-hallway-2.jpg', h: 'h-[26rem]', tone: 'cream' },
+    { src: '/images/instagram-3.jpg', h: 'h-96', tone: 'warm' },
+    { src: '/images/gallery-nail-room.jpg', h: 'h-96', tone: 'cream' },
+    { src: '/images/instagram-2.jpg', h: 'h-96', tone: 'deep' },
+    { src: '/images/products-1.jpg', h: 'h-96', tone: 'warm' },
+    { src: '/images/gallery-lounge-2.jpg', h: 'h-96', tone: 'deep' },
+    { src: '/images/instagram-5.jpg', h: 'h-96', tone: 'warm' },
+    { src: '/images/products-3.jpg', h: 'h-96', tone: 'cream' },
+    { src: '/images/gallery-arch.jpg', h: 'h-96', tone: 'cream' },
+    { src: '/images/instagram-6.jpg', h: 'h-96', tone: 'deep' },
+    { src: '/images/products-2.jpg', h: 'h-96', tone: 'cream' },
   ];
 }
 

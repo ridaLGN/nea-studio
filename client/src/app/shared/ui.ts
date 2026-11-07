@@ -71,11 +71,9 @@ export class Icon {
 // ---------------------------------------------------------------------------
 @Component({
   selector: 'ui-logo',
+  // mirrors the salon's wall lettering: lowercase "néa studio" in a geometric sans
   template: `
-    <span class="inline-flex flex-col leading-none" [class.text-ivory]="light()">
-      <span class="font-display tracking-[0.32em]" [class]="small() ? 'text-lg' : 'text-2xl'">NÉA</span>
-      <span class="text-[0.55rem] tracking-[0.6em] mt-0.5 opacity-70 pl-0.5">STUDIO</span>
-    </span>
+    <span class="inline-flex items-baseline leading-none font-sans font-medium tracking-[-0.02em]" [class.text-ivory]="light()" [class]="small() ? 'text-xl' : 'text-[1.7rem]'">néa<span class="ml-[0.18em] font-normal">studio</span></span>
   `,
 })
 export class Logo {

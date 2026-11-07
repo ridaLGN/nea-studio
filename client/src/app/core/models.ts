@@ -41,6 +41,7 @@ export interface Service {
   slug: string;
   description: string | null;
   priceMad: number;
+  priceMaxMad: number | null;
   durationMinutes: number;
   imageUrl: string | null;
   isDemo: boolean;

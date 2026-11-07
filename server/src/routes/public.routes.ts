@@ -32,7 +32,7 @@ publicRouter.get('/services', async (req, res) => {
   });
   res.json(
     services.map((s) => ({
-      id: s.id, name: s.name, slug: s.slug, description: s.description, priceMad: num(s.priceMad), durationMinutes: s.durationMinutes,
+      id: s.id, name: s.name, slug: s.slug, description: s.description, priceMad: num(s.priceMad), priceMaxMad: s.priceMaxMad == null ? null : num(s.priceMaxMad), durationMinutes: s.durationMinutes,
       imageUrl: s.imageUrl, isDemo: s.isDemo, category: { id: s.category.id, name: s.category.name, slug: s.category.slug },
       employees: s.employees.filter((e) => e.employee.isActive).map((e) => ({ id: e.employee.id, name: `${e.employee.firstName} ${e.employee.lastName}`, photoUrl: e.employee.photoUrl, color: e.employee.color })),
     })),

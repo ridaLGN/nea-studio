@@ -4,7 +4,7 @@ import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/api.service';
 import { AuthService } from '../core/auth.service';
 import { ToastService, errorMessage } from '../core/toast.service';
-import { dateLong, mad, time } from '../core/format';
+import { dateLong, mad, priceRange, time } from '../core/format';
 import type { Appointment, Category, Service } from '../core/models';
 import { Avatar, Icon } from '../shared/ui';
 import { SlotPicker, type PickedSlot } from '../shared/slot-picker';
@@ -53,7 +53,7 @@ type Step = 1 | 2 | 3 | 4 | 5;
                         <p class="font-display text-xl">{{ sv.name }}</p>
                         <p class="mt-0.5 text-xs text-taupe">{{ sv.category.name }} · {{ sv.durationMinutes }} min</p>
                       </div>
-                      <span class="shrink-0 font-medium text-burgundy">{{ mad(sv.priceMad) }}</span>
+                      <span class="shrink-0 font-medium text-burgundy">{{ priceRange(sv) }}</span>
                     </button>
                   }
                 </div>
@@ -120,7 +120,7 @@ type Step = 1 | 2 | 3 | 4 | 5;
                   <p class="flex justify-between"><span class="text-taupe">Name</span><span>{{ auth.user()?.customer?.fullName || form.fullName }}</span></p>
                   @if (!auth.user()?.customer) { <p class="flex justify-between"><span class="text-taupe">Phone</span><span>{{ form.phone }}</span></p> }
                   <div class="divider !my-4"></div>
-                  <p class="flex justify-between text-base"><span>Total (paid at the salon)</span><span class="font-medium text-burgundy">{{ mad(sv.priceMad) }}</span></p>
+                  <p class="flex justify-between text-base"><span>{{ sv.priceMaxMad ? 'Price (confirmed at the salon)' : 'Total (paid at the salon)' }}</span><span class="font-medium text-burgundy">{{ priceRange(sv) }}</span></p>
                 </div>
                 @if (s()?.cancellationPolicyText) { <p class="mt-4 text-xs leading-relaxed text-taupe">{{ s()?.cancellationPolicyText }}</p> }
                 <div class="mt-6 flex justify-end"><button class="btn-primary btn-lg" (click)="confirm()" [disabled]="submitting()">{{ submitting() ? 'Booking…' : 'Confirm booking' }}</button></div>
@@ -133,7 +133,7 @@ type Step = 1 | 2 | 3 | 4 | 5;
             <div class="panel p-5 text-sm">
               <p class="eyebrow mb-3">Your selection</p>
               <p class="font-display text-xl">{{ service()?.name || 'No service yet' }}</p>
-              @if (service(); as sv) { <p class="text-taupe">{{ sv.durationMinutes }} min · {{ mad(sv.priceMad) }}</p> }
+              @if (service(); as sv) { <p class="text-taupe">{{ sv.durationMinutes }} min · {{ priceRange(sv) }}</p> }
               @if (step() > 2) { <p class="mt-3 flex items-center gap-2"><ui-icon name="user" [size]="15" class="text-taupe" />{{ employeeName() }}</p> }
               @if (slot(); as sl) { <p class="mt-2 flex items-center gap-2"><ui-icon name="calendar" [size]="15" class="text-taupe" />{{ dateLong(sl.startAt) }}, {{ sl.time }}</p> }
             </div>
@@ -199,6 +199,7 @@ export class BookingPage {
     return id ? (this.service()?.employees.find((e) => e.id === id)?.name ?? '') : 'Any available team member';
   });
   mad = mad;
+  priceRange = priceRange;
   dateLong = dateLong;
   time = time;
 

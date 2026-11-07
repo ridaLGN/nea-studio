@@ -2,7 +2,7 @@ import { Component, DestroyRef, computed, inject, signal } from '@angular/core';
 import { DomSanitizer } from '@angular/platform-browser';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/api.service';
-import { mad } from '../core/format';
+import { mad, priceRange } from '../core/format';
 import type { Service } from '../core/models';
 import { Icon, Photo } from '../shared/ui';
 
@@ -60,7 +60,7 @@ import { Icon, Photo } from '../shared/ui';
                 <h3 class="mt-1 font-display text-2xl">{{ sv.name }}</h3>
                 <div class="mt-4 flex items-center justify-between text-sm">
                   <span class="text-taupe">{{ sv.durationMinutes }} min</span>
-                  <span class="font-medium text-burgundy">{{ mad(sv.priceMad) }}</span>
+                  <span class="font-medium text-burgundy">{{ priceRange(sv) }}</span>
                 </div>
               </div>
             </a>
@@ -145,7 +145,6 @@ import { Icon, Photo } from '../shared/ui';
           <ui-photo class="aspect-square rounded-2xl" [src]="'/images/instagram-' + i + '.jpg'" [tone]="i % 3 === 0 ? 'deep' : i % 2 ? 'warm' : 'cream'" />
         }
       </div>
-      @if (!s()?.instagram) { <p class="mt-4 text-xs text-taupe">Add the salon's Instagram handle in Settings and drop images named instagram-1.jpg … instagram-6.jpg in /public/images.</p> }
     </section>
 
     <!-- Location -->
@@ -179,6 +178,7 @@ export class HomePage {
   });
   hasDemo = computed(() => this.services().some((s) => s.isDemo));
   mad = mad;
+  priceRange = priceRange;
   t = signal(0);
   testimonials = [
     { quote: 'A real moment of calm in the middle of the city. I leave every time feeling lighter.', name: 'Sample client' },

@@ -29,6 +29,10 @@ function fmt(opts: Intl.DateTimeFormatOptions, locale = 'en-GB') {
 export const mad = (v: number | null | undefined) =>
   `${new Intl.NumberFormat('fr-MA', { minimumFractionDigits: 0, maximumFractionDigits: 2 }).format(v ?? 0)} MAD`;
 
+/** "400 – 450 MAD" for range prices */
+export const priceRange = (s: { priceMad: number; priceMaxMad?: number | null }) =>
+  s.priceMaxMad && s.priceMaxMad > s.priceMad ? `${new Intl.NumberFormat('fr-MA').format(s.priceMad)} – ${mad(s.priceMaxMad)}` : mad(s.priceMad);
+
 export const time = (iso: string | Date) => fmt({ hour: '2-digit', minute: '2-digit', hour12: false }).format(new Date(iso));
 export const dateShort = (iso: string | Date) => fmt({ day: 'numeric', month: 'short' }).format(new Date(iso));
 export const dateLong = (iso: string | Date) => fmt({ weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }).format(new Date(iso));

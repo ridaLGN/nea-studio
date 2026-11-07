@@ -1,7 +1,7 @@
 import { Component, computed, inject, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { ApiService } from '../core/api.service';
-import { mad } from '../core/format';
+import { mad, priceRange } from '../core/format';
 import type { Category, Service } from '../core/models';
 import { Avatar, Icon, Photo } from '../shared/ui';
 
@@ -36,7 +36,7 @@ import { Avatar, Icon, Photo } from '../shared/ui';
               <p class="mt-2 flex-1 text-sm leading-relaxed text-brown/70">{{ sv.description }}</p>
               <div class="mt-4 flex items-center gap-4 text-sm">
                 <span class="flex items-center gap-1.5 text-taupe"><ui-icon name="clock" [size]="15" />{{ sv.durationMinutes }} min</span>
-                <span class="font-medium text-burgundy">{{ mad(sv.priceMad) }}</span>
+                <span class="font-medium text-burgundy">{{ priceRange(sv) }}</span>
               </div>
               <div class="mt-5 flex items-center justify-between gap-3">
                 <div class="flex -space-x-2" [title]="names(sv)">
@@ -60,6 +60,7 @@ export class ServicesPage {
   cat = signal<string | null>(null);
   filtered = computed(() => this.services().filter((s) => !this.cat() || s.category.slug === this.cat()));
   mad = mad;
+  priceRange = priceRange;
   names = (s: Service) => s.employees.map((e) => e.name).join(', ');
   constructor() {
     this.api.categories().then((c) => this.categories.set(c));
