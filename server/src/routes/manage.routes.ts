@@ -109,7 +109,7 @@ manageRouter.patch('/employees/:id', requirePermission('employees.manage'), asyn
   const b = parse(employeeSchema.partial(), req.body);
   const { serviceIds, account, ...data } = b;
   await prisma.$transaction(async (tx) => {
-    await tx.employee.update({ where: { id: (req.params.id as string) }, data });
+    await tx.employee.update({ where: { id: (req.params.id as string) }, data: { ...data, ...(data.firstName || data.lastName ? { isDemo: false } : {}) } });
     if (serviceIds) {
       await tx.employeeService.deleteMany({ where: { employeeId: (req.params.id as string) } });
       await tx.employeeService.createMany({ data: serviceIds.map((serviceId) => ({ employeeId: (req.params.id as string), serviceId })) });
@@ -232,7 +232,7 @@ manageRouter.patch('/services/:id', requirePermission('services.manage'), async 
   const before = await prisma.service.findUnique({ where: { id: (req.params.id as string) } });
   if (!before) throw notFound('Service');
   const s = await prisma.$transaction(async (tx) => {
-    const u = await tx.service.update({ where: { id: (req.params.id as string) }, data: { ...data, ...(priceMad != null ? { priceMad: dec(priceMad) } : {}) } });
+    const u = await tx.service.update({ where: { id: (req.params.id as string) }, data: { ...data, isDemo: false, ...(priceMad != null ? { priceMad: dec(priceMad) } : {}) } });
     if (employeeIds) {
       await tx.employeeService.deleteMany({ where: { serviceId: u.id } });
       await tx.employeeService.createMany({ data: employeeIds.map((employeeId) => ({ serviceId: u.id, employeeId })) });

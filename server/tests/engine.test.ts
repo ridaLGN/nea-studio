@@ -79,3 +79,13 @@ describe('availability engine', () => {
     expect(slotsFor(day, 30, 30, 900).every((s) => s >= 900)).toBe(true);
   });
 });
+
+import { offsetTransitions, localToUtc } from '../src/lib/time.js';
+describe('salon timezone (Africa/Casablanca)', () => {
+  it('uses UTC+1 outside Ramadan and publishes the offset transitions', () => {
+    expect(localToUtc('2026-11-09', 600).toISOString()).toBe('2026-11-09T09:00:00.000Z'); // 10:00 local
+    const t = offsetTransitions('Africa/Casablanca');
+    expect(t.length).toBeGreaterThan(1);
+    expect(new Set(t.map((x) => x.offset))).toEqual(new Set([0, 60]));
+  });
+});

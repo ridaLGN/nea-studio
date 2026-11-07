@@ -148,19 +148,20 @@ adminRouter.get('/availability/search', requirePermission('availability.view'), 
       serviceId: z.string().min(1), date: isoDate.optional(), employeeId: z.string().optional(),
       preferredTime: z.string().regex(/^\d{2}:\d{2}$/).optional(), durationMinutes: z.coerce.number().int().min(5).max(600).optional(),
       days: z.coerce.number().int().min(1).max(30).default(14),
+      excludeAppointmentId: z.string().optional(),
     }),
     req.query,
   );
   const settings = await getSettings();
   const date = q.date ?? todayLocal(settings.timezone);
-  const r = await findSlots({ serviceId: q.serviceId, date, employeeId: q.employeeId || null, enforceRules: false, durationMinutes: q.durationMinutes });
+  const r = await findSlots({ serviceId: q.serviceId, date, employeeId: q.employeeId || null, enforceRules: false, durationMinutes: q.durationMinutes, excludeAppointmentId: q.excludeAppointmentId });
   let slots = r.slots;
   if (q.preferredTime) {
     const [h, m] = q.preferredTime.split(':').map(Number);
     const pref = h * 60 + m;
     slots = [...slots].sort((a, b) => Math.abs(a.minute - pref) - Math.abs(b.minute - pref));
   }
-  const next = await nextAvailable(q.serviceId, date, q.days, q.employeeId || null, 3, false);
+  const next = q.days > 1 ? await nextAvailable(q.serviceId, date, q.days, q.employeeId || null, 3, false) : new Map<string, { date: string; time: string; startAt: string }[]>();
   const recommendations = r.employees.map((e) => ({ ...e, next: next.get(e.id) ?? [] }));
   const earliest = recommendations.flatMap((e) => e.next.map((n) => ({ ...n, employeeId: e.id, employeeName: e.name }))).sort((a, b) => a.startAt.localeCompare(b.startAt))[0] ?? null;
   res.json({ ...r, slots, recommendations, earliest });

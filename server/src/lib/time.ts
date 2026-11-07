@@ -55,3 +55,28 @@ export function hhmm(m: number): string {
 export function formatLocal(d: Date, tz = DEFAULT_TZ, fmt = "cccc d LLLL yyyy, HH:mm") {
   return DateTime.fromJSDate(d, { zone: tz }).setLocale('en-GB').toFormat(fmt);
 }
+
+/**
+ * UTC-offset transitions of a timezone around now (±18 months), from the server's up-to-date tzdata.
+ * Browsers ship their own (sometimes outdated) timezone data — e.g. some treat Africa/Casablanca as UTC+0 —
+ * so the client formats every date with these offsets instead of trusting its local database.
+ */
+const transitionCache = new Map<string, { at: number; value: { from: string; offset: number }[] }>();
+export function offsetTransitions(tz = DEFAULT_TZ) {
+  const hit = transitionCache.get(tz);
+  if (hit && Date.now() - hit.at < 12 * 3600_000) return hit.value;
+  const out: { from: string; offset: number }[] = [];
+  let t = DateTime.utc().minus({ months: 18 }).startOf('hour');
+  const end = DateTime.utc().plus({ months: 18 });
+  let prev: number | null = null;
+  while (t < end) {
+    const off = t.setZone(tz).offset;
+    if (off !== prev) {
+      out.push({ from: t.toISO()!, offset: off });
+      prev = off;
+    }
+    t = t.plus({ hours: 1 });
+  }
+  transitionCache.set(tz, { at: Date.now(), value: out });
+  return out;
+}

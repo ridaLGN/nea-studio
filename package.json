@@ -1,0 +1,15 @@
+{
+  "name": "nea-studio",
+  "private": true,
+  "description": "NÉA STUDIO — beauty salon management & online booking",
+  "scripts": {
+    "db:up": "docker compose up -d db",
+    "setup": "npm i && npm i --prefix server && npm i --prefix client && npm run db:up && npm run db:deploy --prefix server && npm run db:seed --prefix server",
+    "dev": "concurrently -n api,web -c magenta,cyan \"npm run dev --prefix server\" \"npm start --prefix client -- --port 4200\"",
+    "test": "npm test --prefix server",
+    "build": "npm run build --prefix server && npm run build --prefix client"
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.5"
+  }
+}

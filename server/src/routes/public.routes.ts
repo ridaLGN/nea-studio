@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
-import { prisma, parse, notFound, normalizePhone, num } from '../lib/core.js';
-import { isIsoDate, todayLocal } from '../lib/time.js';
+import { prisma, parse, notFound, normalizePhone, num, badRequest } from '../lib/core.js';
+import { isIsoDate, todayLocal, offsetTransitions } from '../lib/time.js';
 import { isTest } from '../config/env.js';
 import { getSettings, publicSettings } from '../modules/settings/settings.service.js';
 import { findSlots } from '../modules/availability/availability.service.js';
@@ -16,7 +16,7 @@ const isoDate = z.string().refine(isIsoDate, 'Expected YYYY-MM-DD');
 
 publicRouter.get('/settings', async (_req, res) => {
   const [s, opening] = await Promise.all([getSettings(), prisma.openingHour.findMany({ orderBy: { weekday: 'asc' } })]);
-  res.json({ ...publicSettings(s), today: todayLocal(s.timezone), openingHours: opening });
+  res.json({ ...publicSettings(s), today: todayLocal(s.timezone), openingHours: opening, tzTransitions: offsetTransitions(s.timezone) });
 });
 
 publicRouter.get('/categories', async (_req, res) => {
@@ -63,20 +63,21 @@ const bookingSchema = z.object({
     fullName: z.string().trim().min(2).max(120),
     phone: z.string().trim().min(6).max(30),
     email: z.string().trim().email().max(200).optional().or(z.literal('')),
-  }),
+  }).optional(), // optional only for signed-in customers
   notes: z.string().max(500).optional(),
 });
 
 publicRouter.post('/bookings', bookingLimiter, async (req, res) => {
   const b = parse(bookingSchema, req.body);
   const actor: Actor = { userId: req.user?.id ?? null, role: req.user?.role ?? null, customerId: req.user?.customerId, ip: req.ip };
+  if (!req.user?.customerId && !b.customer) throw badRequest('Customer details are required', 'VALIDATION_ERROR');
   const appt = await createAppointment(
     {
       serviceId: b.serviceId,
       employeeId: b.employeeId && b.employeeId !== 'any' ? b.employeeId : null,
       startAt: new Date(b.startAt),
       // a signed-in customer always books for themself
-      ...(req.user?.customerId ? { customerId: req.user.customerId } : { customer: { ...b.customer, email: b.customer.email || null } }),
+      ...(req.user?.customerId ? { customerId: req.user.customerId } : { customer: { ...b.customer!, email: b.customer!.email || null } }),
       notes: b.notes,
       source: 'ONLINE',
     },
