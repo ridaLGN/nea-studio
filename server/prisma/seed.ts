@@ -119,19 +119,18 @@ async function seedDemo() {
   );
   const svc = (name: string) => services.find((s) => s.name === name)!;
 
+  // Real team first names (specialities to be confirmed by the salon — services below are a starting point)
   const team = [
-    { firstName: 'Salma', lastName: 'Demo', title: 'Senior hair stylist', color: '#783D43', off: 1, services: ['Blow-dry', 'Cut & blow-dry', 'Colour', 'Hair treatment'] },
-    { firstName: 'Imane', lastName: 'Demo', title: 'Hair & make-up artist', color: '#A0674B', off: 3, services: ['Blow-dry', 'Cut & blow-dry', 'Event make-up'] },
-    { firstName: 'Nadia', lastName: 'Demo', title: 'Nail technician', color: '#8C7A6B', off: 2, services: ['Classic manicure', 'Semi-permanent polish', 'Pedicure'] },
-    { firstName: 'Yasmine', lastName: 'Demo', title: 'Aesthetician', color: '#5E4B43', off: 4, services: ['Signature facial', 'Express facial', 'Event make-up', 'Classic manicure'] },
+    { firstName: 'Angel', lastName: '', title: null as string | null, color: '#783D43', off: 1, services: ['Blow-dry', 'Cut & blow-dry', 'Colour', 'Hair treatment'] },
+    { firstName: 'Kawtar', lastName: '', title: null as string | null, color: '#A0674B', off: 3, services: ['Blow-dry', 'Cut & blow-dry', 'Event make-up'] },
+    { firstName: 'Fedoua', lastName: '', title: null as string | null, color: '#8C7A6B', off: 2, services: ['Classic manicure', 'Semi-permanent polish', 'Pedicure', 'Signature facial', 'Express facial'] },
   ];
   const employees = [];
   for (const [i, t] of team.entries()) {
-    const user = await prisma.user.create({ data: { email: `${t.firstName.toLowerCase()}@neastudio.demo`, passwordHash: staffPwd, roleId: await role(i === 0 ? 'MANAGER' : 'EMPLOYEE') } });
+    const user = await prisma.user.create({ data: { email: `${t.firstName.toLowerCase()}@neastudio.demo`, passwordHash: staffPwd, roleId: await role('EMPLOYEE') } });
     const e = await prisma.employee.create({
       data: {
-        firstName: t.firstName, lastName: t.lastName, title: t.title, color: t.color, sortOrder: i, isDemo: true, userId: user.id,
-        bio: 'Demo profile — replace with the real team member.',
+        firstName: t.firstName, lastName: t.lastName, title: t.title, color: t.color, sortOrder: i, isDemo: false, userId: user.id,
         services: { create: t.services.map((n) => ({ serviceId: svc(n).id })) },
         // Works Mon–Sat except their weekly day off; 10:00–19:00 with a 13:00–14:00 lunch break
         workingHours: { create: [1, 2, 3, 4, 5, 6].filter((d) => d !== t.off).map((weekday) => ({ weekday, startMinute: 600, endMinute: 1140 })) },

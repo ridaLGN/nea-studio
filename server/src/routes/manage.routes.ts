@@ -69,7 +69,7 @@ manageRouter.get('/employees/:id', requirePermission('availability.view'), async
 
 const employeeSchema = z.object({
   firstName: z.string().trim().min(1).max(60),
-  lastName: z.string().trim().min(1).max(60),
+  lastName: z.string().trim().max(60).default(''),
   title: z.string().max(80).nullish(),
   bio: z.string().max(1000).nullish(),
   photoUrl: z.string().max(500).nullish(),

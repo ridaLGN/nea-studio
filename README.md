@@ -154,8 +154,7 @@ npm run db:reset      # DROP and recreate the dev database, then seed — destru
 | Role | Email | Password |
 |---|---|---|
 | Administrator | `admin@neastudio.demo` | `NeaAdmin!2026` (from `SEED_ADMIN_PASSWORD`) |
-| Manager | `salma@neastudio.demo` | `NeaStaff!2026` |
-| Employee | `imane@` / `nadia@` / `yasmine@neastudio.demo` | `NeaStaff!2026` |
+| Employees (Angel, Kawtar, Fedoua) | `angel@` / `kawtar@` / `fedoua@neastudio.demo` | `NeaStaff!2026` |
 | Customer | `customer@neastudio.demo` | `NeaClient!2026` |
 
 These accounts exist only in seeded demo data. Never use them in production: seed production with `SEED_DEMO=false` and a strong `SEED_ADMIN_PASSWORD`.
