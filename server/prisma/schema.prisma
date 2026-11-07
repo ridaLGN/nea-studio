@@ -1,0 +1,524 @@
+// NÉA STUDIO — relational schema
+// Times-of-day are stored as "minutes since midnight" in the salon timezone (Africa/Casablanca).
+// Instants (appointments, logs) are stored as timestamptz (UTC).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum AppointmentStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+}
+
+enum BookingSource {
+  ONLINE
+  ADMIN
+  EMPLOYEE
+}
+
+enum AbsenceType {
+  VACATION
+  SICK
+  HOLIDAY
+  PERSONAL
+  TRAINING
+  OTHER
+}
+
+enum ExceptionType {
+  CUSTOM_HOURS // replaces the normal working hours for that date
+  UNAVAILABLE // blocks a window (or the whole day when no times given)
+}
+
+enum StampSource {
+  APPOINTMENT
+  MANUAL
+}
+
+enum RewardStatus {
+  AVAILABLE
+  REDEEMED
+  EXPIRED
+}
+
+enum NotificationChannel {
+  EMAIL
+  WHATSAPP
+}
+
+enum NotificationType {
+  APPOINTMENT_CONFIRMATION
+  APPOINTMENT_REMINDER
+  APPOINTMENT_CANCELLATION
+  APPOINTMENT_RESCHEDULED
+  REWARD_UNLOCKED
+  REWARD_EXPIRING
+}
+
+enum NotificationStatus {
+  QUEUED
+  SENT
+  FAILED
+  NOT_CONFIGURED
+  SKIPPED
+}
+
+enum PaymentMethod {
+  CASH
+  CARD
+  TRANSFER
+  OTHER
+}
+
+enum PaymentStatus {
+  PAID
+  REFUNDED
+}
+
+// ---------- Access control ----------
+
+model Role {
+  id          String           @id @default(cuid())
+  name        String           @unique // ADMIN | MANAGER | EMPLOYEE | CUSTOMER
+  description String?
+  permissions RolePermission[]
+  users       User[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  key         String           @unique
+  description String?
+  roles       RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  roleId       String
+  permissionId String
+  role         Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@id([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  passwordHash String
+  roleId       String
+  role         Role      @relation(fields: [roleId], references: [id])
+  isActive     Boolean   @default(true)
+  lastLoginAt  DateTime? @db.Timestamptz
+  createdAt    DateTime  @default(now()) @db.Timestamptz
+  updatedAt    DateTime  @updatedAt @db.Timestamptz
+  customer     Customer?
+  employee     Employee?
+
+  @@index([roleId])
+  @@map("users")
+}
+
+// ---------- People ----------
+
+model Customer {
+  id             String         @id @default(cuid())
+  customerNumber String         @unique // human-friendly, e.g. NEA-000123
+  fullName       String
+  phone          String         @unique // normalised E.164
+  email          String?
+  qrToken        String         @unique // opaque random token encoded in the QR code
+  notes          String?
+  userId         String?        @unique
+  user           User?          @relation(fields: [userId], references: [id], onDelete: SetNull)
+  isDemo         Boolean        @default(false)
+  createdAt      DateTime       @default(now()) @db.Timestamptz
+  updatedAt      DateTime       @updatedAt @db.Timestamptz
+  appointments   Appointment[]
+  loyaltyCard    LoyaltyCard?
+  notifications  Notification[]
+
+  @@index([fullName])
+  @@index([email])
+  @@index([createdAt])
+  @@map("customers")
+}
+
+model Employee {
+  id           String                  @id @default(cuid())
+  userId       String?                 @unique
+  user         User?                   @relation(fields: [userId], references: [id], onDelete: SetNull)
+  firstName    String
+  lastName     String
+  title        String?
+  bio          String?
+  photoUrl     String?
+  color        String                  @default("#783D43")
+  isActive     Boolean                 @default(true)
+  sortOrder    Int                     @default(0)
+  isDemo       Boolean                 @default(false)
+  createdAt    DateTime                @default(now()) @db.Timestamptz
+  updatedAt    DateTime                @updatedAt @db.Timestamptz
+  services     EmployeeService[]
+  workingHours WorkingHour[]
+  breaks       Break[]
+  absences     EmployeeAbsence[]
+  exceptions   AvailabilityException[]
+  appointments Appointment[]
+
+  @@map("employees")
+}
+
+// ---------- Catalogue ----------
+
+model ServiceCategory {
+  id          String    @id @default(cuid())
+  name        String    @unique
+  slug        String    @unique
+  description String?
+  sortOrder   Int       @default(0)
+  services    Service[]
+
+  @@map("service_categories")
+}
+
+model Service {
+  id              String            @id @default(cuid())
+  categoryId      String
+  category        ServiceCategory   @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  name            String
+  slug            String            @unique
+  description     String?
+  priceMad        Decimal           @db.Decimal(10, 2)
+  durationMinutes Int
+  imageUrl        String?
+  isActive        Boolean           @default(true)
+  sortOrder       Int               @default(0)
+  isDemo          Boolean           @default(false)
+  createdAt       DateTime          @default(now()) @db.Timestamptz
+  updatedAt       DateTime          @updatedAt @db.Timestamptz
+  employees       EmployeeService[]
+  appointments    Appointment[]
+
+  @@index([categoryId])
+  @@map("services")
+}
+
+model EmployeeService {
+  employeeId String
+  serviceId  String
+  employee   Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  service    Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@id([employeeId, serviceId])
+  @@index([serviceId])
+  @@map("employee_services")
+}
+
+// ---------- Schedules ----------
+
+/// Salon opening hours. weekday: 1 = Monday … 7 = Sunday (ISO)
+model OpeningHour {
+  weekday     Int     @id
+  isClosed    Boolean @default(false)
+  openMinute  Int     @default(540)
+  closeMinute Int     @default(1200)
+
+  @@map("opening_hours")
+}
+
+/// Salon-wide closure days (public holidays, etc.)
+model SalonClosure {
+  id     String   @id @default(cuid())
+  date   DateTime @unique @db.Date
+  reason String?
+
+  @@map("salon_closures")
+}
+
+model WorkingHour {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  weekday     Int
+  startMinute Int
+  endMinute   Int
+
+  @@unique([employeeId, weekday])
+  @@map("working_hours")
+}
+
+model Break {
+  id          String   @id @default(cuid())
+  employeeId  String
+  employee    Employee @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  weekday     Int
+  startMinute Int
+  endMinute   Int
+  label       String   @default("Pause")
+
+  @@index([employeeId, weekday])
+  @@map("breaks")
+}
+
+/// Full-day absences (inclusive date range)
+model EmployeeAbsence {
+  id         String      @id @default(cuid())
+  employeeId String
+  employee   Employee    @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  type       AbsenceType @default(VACATION)
+  startDate  DateTime    @db.Date
+  endDate    DateTime    @db.Date
+  reason     String?
+  createdAt  DateTime    @default(now()) @db.Timestamptz
+
+  @@index([employeeId, startDate, endDate])
+  @@map("employee_absences")
+}
+
+model AvailabilityException {
+  id          String        @id @default(cuid())
+  employeeId  String
+  employee    Employee      @relation(fields: [employeeId], references: [id], onDelete: Cascade)
+  date        DateTime      @db.Date
+  type        ExceptionType
+  startMinute Int?
+  endMinute   Int?
+  reason      String?
+  createdAt   DateTime      @default(now()) @db.Timestamptz
+
+  @@index([employeeId, date])
+  @@map("availability_exceptions")
+}
+
+// ---------- Appointments ----------
+
+model Appointment {
+  id                 String               @id @default(cuid())
+  reference          String               @unique
+  customerId         String
+  customer           Customer             @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  employeeId         String
+  employee           Employee             @relation(fields: [employeeId], references: [id], onDelete: Restrict)
+  serviceId          String
+  service            Service              @relation(fields: [serviceId], references: [id], onDelete: Restrict)
+  startAt            DateTime             @db.Timestamptz
+  endAt              DateTime             @db.Timestamptz
+  status             AppointmentStatus    @default(PENDING)
+  source             BookingSource        @default(ONLINE)
+  priceMad           Decimal              @db.Decimal(10, 2) // price snapshot at booking time
+  durationMinutes    Int
+  notes              String?
+  cancellationReason String?
+  cancelledAt        DateTime?            @db.Timestamptz
+  completedAt        DateTime?            @db.Timestamptz
+  createdByUserId    String?
+  isDemo             Boolean              @default(false)
+  createdAt          DateTime             @default(now()) @db.Timestamptz
+  updatedAt          DateTime             @updatedAt @db.Timestamptz
+  history            AppointmentHistory[]
+  stamp              LoyaltyStamp?
+  redemption         RewardRedemption?
+  payments           Payment[]
+  notifications      Notification[]
+
+  @@index([employeeId, startAt])
+  @@index([customerId, startAt])
+  @@index([startAt])
+  @@index([status])
+  @@map("appointments")
+}
+
+model AppointmentHistory {
+  id            String             @id @default(cuid())
+  appointmentId String
+  appointment   Appointment        @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  action        String // CREATED | RESCHEDULED | STATUS_CHANGED | CANCELLED | COMPLETED | UPDATED
+  fromStatus    AppointmentStatus?
+  toStatus      AppointmentStatus?
+  details       Json?
+  actorUserId   String?
+  createdAt     DateTime           @default(now()) @db.Timestamptz
+
+  @@index([appointmentId])
+  @@map("appointment_history")
+}
+
+// ---------- Loyalty ----------
+
+model LoyaltyCard {
+  id         String          @id @default(cuid())
+  customerId String          @unique
+  customer   Customer        @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  createdAt  DateTime        @default(now()) @db.Timestamptz
+  stamps     LoyaltyStamp[]
+  rewards    LoyaltyReward[]
+
+  @@map("loyalty_cards")
+}
+
+model LoyaltyStamp {
+  id              String       @id @default(cuid())
+  cardId          String
+  card            LoyaltyCard  @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  appointmentId   String?      @unique // one stamp per appointment, enforced by the DB
+  appointment     Appointment? @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  source          StampSource
+  value           Int          @default(1) // number of stamps this row represents
+  reason          String?
+  createdByUserId String?
+  revokedAt       DateTime?    @db.Timestamptz
+  revokedByUserId String?
+  revokeReason    String?
+  createdAt       DateTime     @default(now()) @db.Timestamptz
+
+  @@index([cardId])
+  @@map("loyalty_stamps")
+}
+
+/// Configurable loyalty milestones (e.g. 8 stamps => 20 %)
+model LoyaltyRule {
+  id              String          @id @default(cuid())
+  name            String
+  stampsRequired  Int
+  discountPercent Int
+  validityDays    Int? // null = never expires
+  isActive        Boolean         @default(true)
+  createdAt       DateTime        @default(now()) @db.Timestamptz
+  updatedAt       DateTime        @updatedAt @db.Timestamptz
+  rewards         LoyaltyReward[]
+
+  @@map("loyalty_rules")
+}
+
+model LoyaltyReward {
+  id              String            @id @default(cuid())
+  cardId          String
+  card            LoyaltyCard       @relation(fields: [cardId], references: [id], onDelete: Cascade)
+  ruleId          String
+  rule            LoyaltyRule       @relation(fields: [ruleId], references: [id], onDelete: Restrict)
+  cycle           Int // loyalty cycle number (0-based) — prevents unlocking the same milestone twice
+  discountPercent Int // snapshot
+  status          RewardStatus      @default(AVAILABLE)
+  unlockedAt      DateTime          @default(now()) @db.Timestamptz
+  expiresAt       DateTime?         @db.Timestamptz
+  redemption      RewardRedemption?
+
+  @@unique([cardId, ruleId, cycle])
+  @@index([status, expiresAt])
+  @@map("loyalty_rewards")
+}
+
+model RewardRedemption {
+  id                String        @id @default(cuid())
+  rewardId          String        @unique // a reward can be redeemed once
+  reward            LoyaltyReward @relation(fields: [rewardId], references: [id], onDelete: Restrict)
+  appointmentId     String        @unique // one discount per appointment
+  appointment       Appointment   @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+  discountAmountMad Decimal       @db.Decimal(10, 2)
+  redeemedByUserId  String?
+  createdAt         DateTime      @default(now()) @db.Timestamptz
+
+  @@map("reward_redemptions")
+}
+
+// ---------- Money, messaging, audit, settings ----------
+
+model Payment {
+  id               String        @id @default(cuid())
+  appointmentId    String
+  appointment      Appointment   @relation(fields: [appointmentId], references: [id], onDelete: Restrict)
+  grossMad         Decimal       @db.Decimal(10, 2)
+  discountMad      Decimal       @default(0) @db.Decimal(10, 2)
+  amountMad        Decimal       @db.Decimal(10, 2)
+  method           PaymentMethod
+  status           PaymentStatus @default(PAID)
+  recordedByUserId String?
+  createdAt        DateTime      @default(now()) @db.Timestamptz
+
+  @@index([createdAt])
+  @@index([appointmentId])
+  @@map("payments")
+}
+
+model Notification {
+  id                String              @id @default(cuid())
+  channel           NotificationChannel
+  type              NotificationType
+  status            NotificationStatus  @default(QUEUED)
+  recipient         String
+  subject           String?
+  body              String
+  error             String?
+  providerMessageId String?
+  dedupeKey         String?             @unique // prevents sending the same reminder twice
+  customerId        String?
+  customer          Customer?           @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  appointmentId     String?
+  appointment       Appointment?        @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  sentAt            DateTime?           @db.Timestamptz
+  createdAt         DateTime            @default(now()) @db.Timestamptz
+
+  @@index([status])
+  @@index([customerId])
+  @@index([createdAt])
+  @@map("notifications")
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  actorUserId String?
+  action      String
+  entityType  String
+  entityId    String?
+  details     Json?
+  ip          String?
+  createdAt   DateTime @default(now()) @db.Timestamptz
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+  @@map("audit_logs")
+}
+
+model SalonSettings {
+  id                       Int      @id @default(1)
+  name                     String   @default("NÉA STUDIO")
+  tagline                  String?
+  logoUrl                  String?
+  address                  String?
+  city                     String   @default("Marrakech")
+  phone                    String?
+  email                    String?
+  instagram                String?
+  currency                 String   @default("MAD")
+  timezone                 String   @default("Africa/Casablanca")
+  slotIntervalMinutes      Int      @default(15)
+  bufferMinutes            Int      @default(0)
+  minNoticeMinutes         Int      @default(60)
+  maxAdvanceDays           Int      @default(60)
+  autoConfirmOnline        Boolean  @default(false)
+  allowOnlineCancellation  Boolean  @default(true)
+  cancellationNoticeHours  Int      @default(24)
+  cancellationPolicyText   String?
+  loyaltyEnabled           Boolean  @default(true)
+  loyaltyCycleStamps       Int      @default(16)
+  loyaltyCardSlots         Int      @default(8)
+  stampsPerVisit           Int      @default(1)
+  employeesCanComplete     Boolean  @default(true)
+  updatedAt                DateTime @updatedAt @db.Timestamptz
+
+  @@map("salon_settings")
+}

@@ -1,0 +1,19 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: nea-studio-db
+    environment:
+      POSTGRES_USER: nea
+      POSTGRES_PASSWORD: nea_dev_password
+      POSTGRES_DB: nea_studio
+    ports:
+      - "5433:5432"
+    volumes:
+      - nea_pgdata:/var/lib/postgresql/data
+      - ./docker/init-test-db.sql:/docker-entrypoint-initdb.d/10-test-db.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U nea -d nea_studio"]
+      interval: 5s
+      retries: 10
+volumes:
+  nea_pgdata:

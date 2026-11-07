@@ -1,0 +1,56 @@
+{
+  "name": "nea-studio-server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch src/index.ts",
+    "build": "tsc -p tsconfig.json",
+    "start": "node dist/index.js",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:reset": "prisma migrate reset --force",
+    "test": "vitest run",
+    "test:watch": "vitest"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@prisma/client": "^6.19.3",
+    "bcryptjs": "^3.0.3",
+    "cors": "^2.8.6",
+    "dotenv": "^17.4.2",
+    "express": "^5.3.0",
+    "express-rate-limit": "^8.7.3",
+    "helmet": "^8.3.0",
+    "jsonwebtoken": "^9.0.3",
+    "luxon": "^3.7.2",
+    "multer": "^2.5.0",
+    "nodemailer": "^7.0.13",
+    "pino": "^9.14.0",
+    "pino-http": "^10.5.0",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.8.4",
+    "zod": "^3.25.76"
+  },
+  "devDependencies": {
+    "@types/cors": "^2.8.19",
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/luxon": "^3.7.6",
+    "@types/multer": "^2.3.0",
+    "@types/node": "^24.19.2",
+    "@types/nodemailer": "^7.0.12",
+    "@types/qrcode": "^1.5.6",
+    "@types/supertest": "^6.0.3",
+    "pino-pretty": "^13.2.0",
+    "prisma": "^6.19.3",
+    "supertest": "^7.3.2",
+    "tsx": "^4.23.15",
+    "typescript": "~5.9",
+    "vitest": "^3.2.7"
+  }
+}

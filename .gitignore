@@ -1,0 +1,8 @@
+node_modules/
+dist/
+.env
+server/uploads/*
+!server/uploads/.gitkeep
+.angular/
+coverage/
+*.log
