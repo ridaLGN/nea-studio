@@ -15,7 +15,11 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "db:import-menu": "tsx prisma/menu-neastudio.ts",
-    "build:vercel": "prisma generate && tsc -p tsconfig.json"
+    "build:vercel": "prisma generate && tsc -p tsconfig.json",
+    "db:neon:status": "node scripts/neon-migrate.mjs status",
+    "db:neon:deploy": "node scripts/neon-migrate.mjs deploy",
+    "db:neon:seed:plan": "node scripts/neon-seed.mjs plan",
+    "db:neon:seed": "node scripts/neon-seed.mjs apply"
   },
   "prisma": {
     "seed": "tsx prisma/seed.ts"
@@ -56,6 +60,7 @@
     "typescript": "~5.9",
     "vitest": "^3.2.7"
   },
+  "packageManager": "npm@11.6.2",
   "engines": {
     "node": "24.x"
   }

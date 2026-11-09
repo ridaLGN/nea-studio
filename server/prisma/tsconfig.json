@@ -1,0 +1,6 @@
+{
+  // Editor/type-check config for the seed scripts (prisma/*.ts are run with tsx, never compiled to dist)
+  "extends": "../tsconfig.json",
+  "compilerOptions": { "rootDir": "..", "noEmit": true, "types": ["node"] },
+  "include": ["./**/*.ts"]
+}
