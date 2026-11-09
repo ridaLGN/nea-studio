@@ -44,9 +44,23 @@ type Step = 1 | 2 | 3 | 4 | 5;
                 <h2 class="title-md">Choose a service</h2>
                 <div class="mt-5 flex flex-wrap gap-2">
                   <button class="tab" [class.active]="cat() === null" (click)="cat.set(null)">All</button>
-                  @for (c of categories(); track c.id) { <button class="tab" [class.active]="cat() === c.id" (click)="cat.set(c.id)">{{ c.name }}</button> }
+                  @for (c of bookableCategories(); track c.id) { <button class="tab" [class.active]="cat() === c.id" (click)="cat.set(c.id)">{{ c.name }}</button> }
                 </div>
                 <div class="mt-5 space-y-3">
+                  @if (loading()) {
+                    @for (i of [1, 2, 3]; track i) { <div class="card h-[4.6rem] skeleton"></div> }
+                  } @else if (loadError()) {
+                    <div class="rounded-2xl bg-absent-soft px-5 py-6 text-center">
+                      <p class="font-display text-xl text-absent">Services could not be loaded</p>
+                      <p class="mt-1 text-sm text-brown/70">{{ loadError() }}</p>
+                      <button class="btn-outline btn-sm mt-4" (click)="load()"><ui-icon name="refresh" [size]="14" /> Try again</button>
+                    </div>
+                  } @else if (!services().length) {
+                    <div class="rounded-2xl bg-cream/60 px-5 py-8 text-center">
+                      <p class="font-display text-xl">No service is available for online booking yet</p>
+                      <p class="mt-1 text-sm text-taupe">Please contact the salon to book your appointment.</p>
+                    </div>
+                  }
                   @for (sv of visibleServices(); track sv.id) {
                     <button (click)="chooseService(sv)" class="card flex w-full items-center justify-between gap-4 p-5 text-left transition hover:border-burgundy" [class.!border-burgundy]="service()?.id === sv.id">
                       <div>
@@ -203,14 +217,31 @@ export class BookingPage {
   dateLong = dateLong;
   time = time;
 
+  loading = signal(true);
+  loadError = signal('');
+  /** only categories that contain at least one bookable service (avoids empty tabs) */
+  bookableCategories = computed(() => this.categories().filter((c) => this.services().some((s) => s.category.id === c.id)));
+
   constructor() {
-    this.api.categories().then((c) => this.categories.set(c));
-    this.api.employees().then((list) => this.titles.set(Object.fromEntries(list.map((e) => [e.id, e.title ?? '']))));
-    this.api.services().then((list) => {
+    this.load();
+  }
+
+  /** Loads the catalogue; failures are shown to the visitor instead of silently leaving an empty list */
+  async load() {
+    this.loading.set(true);
+    this.loadError.set('');
+    try {
+      const [cats, list, team] = await Promise.all([this.api.categories(), this.api.services(), this.api.employees()]);
+      this.categories.set(cats);
       this.services.set(list);
+      this.titles.set(Object.fromEntries(team.map((e) => [e.id, e.title ?? ''])));
       const pre = list.find((s) => s.id === this.serviceParam());
-      if (pre) this.chooseService(pre);
-    });
+      if (pre && !this.service()) this.chooseService(pre);
+    } catch (e) {
+      this.loadError.set(errorMessage(e));
+    } finally {
+      this.loading.set(false);
+    }
   }
 
   titleOf(id: string) { return this.titles()[id] ?? ''; }

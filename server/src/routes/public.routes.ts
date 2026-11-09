@@ -3,7 +3,7 @@ import rateLimit from 'express-rate-limit';
 import { z } from 'zod';
 import { prisma, parse, notFound, normalizePhone, num, badRequest } from '../lib/core.js';
 import { isIsoDate, todayLocal, offsetTransitions } from '../lib/time.js';
-import { isTest } from '../config/env.js';
+import { isTest, isVercel } from '../config/env.js';
 import { getSettings, publicSettings } from '../modules/settings/settings.service.js';
 import { findSlots } from '../modules/availability/availability.service.js';
 import { appointmentInclude, changeStatus, createAppointment, rescheduleAppointment, type Actor } from '../modules/appointments/appointments.service.js';
@@ -16,7 +16,7 @@ const isoDate = z.string().refine(isIsoDate, 'Expected YYYY-MM-DD');
 
 publicRouter.get('/settings', async (_req, res) => {
   const [s, opening] = await Promise.all([getSettings(), prisma.openingHour.findMany({ orderBy: { weekday: 'asc' } })]);
-  res.json({ ...publicSettings(s), today: todayLocal(s.timezone), openingHours: opening, tzTransitions: offsetTransitions(s.timezone) });
+  res.json({ ...publicSettings(s), today: todayLocal(s.timezone), openingHours: opening, tzTransitions: offsetTransitions(s.timezone), realtime: isVercel ? 'polling' : 'websocket' });
 });
 
 publicRouter.get('/categories', async (_req, res) => {

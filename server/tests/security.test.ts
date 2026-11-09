@@ -84,3 +84,14 @@ describe('role-based access', () => {
     expect((await request(app).post('/api/auth/claim').send({ reference: b.body.reference, phone: '0600000055', email: 'new2@test.local', password: 'Abcdefgh1' })).status).toBe(409);
   });
 });
+
+describe('Vercel cron endpoint', () => {
+  it('rejects calls without the cron secret and runs jobs with it', async () => {
+    expect((await request(app).get('/api/cron/jobs')).status).toBe(401);
+    expect((await request(app).get('/api/cron/jobs').set('Authorization', 'Bearer wrong-secret-0123456789xx')).status).toBe(401);
+    const ok = await request(app).get('/api/cron/jobs').set('Authorization', 'Bearer test-cron-secret-0123456789');
+    expect(ok.status).toBe(200);
+    expect(ok.body).toMatchObject({ ok: true });
+    expect(ok.body).toHaveProperty('reminders');
+  });
+});

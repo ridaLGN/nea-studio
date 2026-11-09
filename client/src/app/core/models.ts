@@ -31,6 +31,7 @@ export interface PublicSettings {
   loyaltyCardSlots: number;
   openingHours: { weekday: number; isClosed: boolean; openMinute: number; closeMinute: number }[];
   tzTransitions: { from: string; offset: number }[];
+  realtime?: 'websocket' | 'polling';
 }
 
 export interface Category { id: string; name: string; slug: string; description: string | null; sortOrder: number }

@@ -22,12 +22,18 @@ const schema = z.object({
   WHATSAPP_TEMPLATE_LANG: z.string().default('fr'),
   JOBS_ENABLED: z.string().default('true'),
   REMINDER_HOURS_BEFORE: z.coerce.number().default(24),
+  // Vercel deployment
+  CRON_SECRET: z.string().optional().default(''), // Vercel sends it as "Authorization: Bearer <CRON_SECRET>" on cron calls
+  BLOB_READ_WRITE_TOKEN: z.string().optional().default(''), // Vercel Blob storage for uploaded images
 });
 
 const parsed = schema.safeParse(process.env);
 if (!parsed.success) {
-  console.error('Invalid environment configuration:', parsed.error.flatten().fieldErrors);
-  process.exit(1);
+  // throw (not process.exit) so a serverless function reports the cause in its logs
+  const fields = Object.keys(parsed.error.flatten().fieldErrors).join(', ');
+  throw new Error(`Invalid environment configuration — check: ${fields}`);
 }
 export const env = parsed.data;
 export const isTest = env.NODE_ENV === 'test';
+/** true when running on Vercel (set automatically by the platform) */
+export const isVercel = !!process.env.VERCEL;
