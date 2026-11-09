@@ -4,7 +4,7 @@
     "client": {
       "root": "client/",
       "framework": "angular",
-      "installCommand": "npm ci",
+      "installCommand": "npx --yes npm@11.6.2 ci",
       "buildCommand": "npm run build",
       "outputDirectory": "dist/client/browser",
       "rewrites": [
@@ -15,7 +15,7 @@
       "root": "server/",
       "framework": "express",
       "entrypoint": "src/vercel.ts",
-      "installCommand": "npm ci",
+      "installCommand": "npx --yes npm@11.6.2 ci",
       "buildCommand": "npm run build:vercel"
     }
   },
