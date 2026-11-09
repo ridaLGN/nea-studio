@@ -22,6 +22,7 @@
  */
 import bcrypt from 'bcryptjs';
 import { PrismaClient } from '@prisma/client';
+import { createHash } from 'node:crypto';
 import { readdirSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -57,7 +58,15 @@ if (!url!.hostname.endsWith('.neon.tech')) fail(`Refusing: ${url!.hostname} is n
 if (!dbName) fail('DATABASE_URL has no database name.');
 if (confirm !== dbName) fail(`Confirmation mismatch: pass --confirm=<database name> matching the target database.`);
 
-const DEMO_PASSWORDS = ['NeaAdmin!2026', 'NeaStaff!2026', 'NeaClient!2026', 'Test-Password-123'];
+// SHA-256 fingerprints of the development/test passwords used in seed.ts and tests/helpers.ts
+// (stored as hashes so no password literal appears in this file). An admin password matching one is refused.
+const sha256 = (s: string) => createHash('sha256').update(s, 'utf8').digest('hex');
+const DEMO_PASSWORD_SHA256 = new Set([
+  '5dc19806e8f480cde5d4b6ac55e34ee3d344046e8052d94a7ff96bf808d9ee35',
+  '692ca1e84310d2c1305ca58bd316e277ebe678aa2bc595ed430a985442ed43bc',
+  '02d55fa5540de6e2b43bbb0be183d0f066483bdb80880479da7434747f32fa08',
+  '35559c13b6d7167cb053b83b48d60e008baaa4f7f4cc055fcd25dd306f8b3efa',
+]);
 const withAdmin = Boolean(adminEmail || adminPassword);
 if (withAdmin) {
   if (!adminEmail || !adminPassword) fail('Set BOTH PROD_ADMIN_EMAIL and PROD_ADMIN_PASSWORD to create the administrator, or NEITHER to skip that step.');
@@ -66,7 +75,7 @@ if (withAdmin) {
   const classes = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^A-Za-z0-9]/].filter((r) => r.test(adminPassword)).length;
   if (adminPassword.length < 14 || adminPassword.length > 128 || classes < 3)
     fail('PROD_ADMIN_PASSWORD must be 14–128 characters and mix at least 3 of: lowercase, uppercase, digits, symbols.');
-  if (DEMO_PASSWORDS.includes(adminPassword) || /<|>|change.?me/i.test(adminPassword)) fail('PROD_ADMIN_PASSWORD is a demo or placeholder value.');
+  if (DEMO_PASSWORD_SHA256.has(sha256(adminPassword)) || /<|>|change.?me/i.test(adminPassword)) fail('PROD_ADMIN_PASSWORD is a demo or placeholder value.');
   if (adminPassword.toLowerCase().includes(adminEmail.split('@')[0])) fail('PROD_ADMIN_PASSWORD must not contain the email name.');
 }
 
