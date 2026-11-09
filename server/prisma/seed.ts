@@ -3,41 +3,21 @@
  * (isDemo = true) so the system can be explored before real salon data is entered.
  *
  *   npm run db:seed             -> base data + demo data (demo only if no employees exist yet)
- *   SEED_DEMO=false npm run db:seed  -> base data only (production)
+ *   SEED_DEMO=false npm run db:seed  -> base data only (local)
+ *
+ * DEVELOPMENT ONLY — refuses to run against Neon. Production uses `npm run db:neon:seed` (seed-production.ts).
  */
 import 'dotenv/config';
 import bcrypt from 'bcryptjs';
 import { PrismaClient, Prisma } from '@prisma/client';
 import { DateTime } from 'luxon';
 import { randomBytes, randomInt } from 'node:crypto';
+import { PERMISSIONS, ROLE_PERMISSIONS, INITIAL_SETTINGS, INITIAL_OPENING_HOURS, INITIAL_LOYALTY_RULES } from './seed-data.js';
+
+export { PERMISSIONS, ROLE_PERMISSIONS };
 
 const prisma = new PrismaClient();
 const TZ = 'Africa/Casablanca';
-
-export const PERMISSIONS: Record<string, string> = {
-  'dashboard.view': 'View management dashboard',
-  'availability.view': 'View the real-time availability dashboard & search engine',
-  'appointments.view_all': 'View every appointment',
-  'appointments.manage': 'Create, edit, reschedule and cancel appointments',
-  'appointments.complete': 'Validate (complete) appointments',
-  'customers.view': 'View customer database',
-  'customers.manage': 'Create and edit customers',
-  'employees.manage': 'Manage employees, schedules and absences',
-  'services.manage': 'Manage services, categories and prices',
-  'loyalty.manage': 'Configure loyalty rules and adjust stamps',
-  'settings.manage': 'Edit business settings',
-  'analytics.view': 'View revenue and business analytics',
-  'notifications.view': 'View notification logs',
-  'audit.view': 'View audit logs',
-  'qr.scan': 'Scan customer QR codes and look up customers',
-};
-const ALL = Object.keys(PERMISSIONS);
-export const ROLE_PERMISSIONS: Record<string, string[]> = {
-  ADMIN: ALL,
-  MANAGER: ALL.filter((p) => p !== 'settings.manage' && p !== 'audit.view'),
-  EMPLOYEE: ['qr.scan', 'appointments.complete'],
-  CUSTOMER: [],
-};
 
 const code = (n: number) => Array.from({ length: n }, () => 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'[randomInt(32)]).join('');
 
@@ -52,27 +32,12 @@ export async function seedBase(db: PrismaClient = prisma) {
   await db.salonSettings.upsert({
     where: { id: 1 },
     update: {},
-    create: {
-      id: 1,
-      name: 'NÉA STUDIO',
-      tagline: 'Beauty & wellbeing studio — Marrakech',
-      city: 'Marrakech',
-      address: 'Address to be configured in Settings',
-      cancellationPolicyText: 'Appointments can be cancelled or rescheduled free of charge up to 24 hours in advance. Within 24 hours, please call the salon.',
-    },
+    create: { id: 1, ...INITIAL_SETTINGS, address: 'Address to be configured in Settings' },
   });
-  // Opening hours (DEMO defaults — edit in Settings): Mon–Sat 09:30–20:00, Sunday closed
-  for (let wd = 1; wd <= 7; wd++)
-    await db.openingHour.upsert({ where: { weekday: wd }, update: {}, create: { weekday: wd, isClosed: wd === 7, openMinute: 570, closeMinute: 1200 } });
+  // Opening hours (defaults — edit in Settings): Mon–Sat 09:30–20:00, Sunday closed
+  for (const h of INITIAL_OPENING_HOURS) await db.openingHour.upsert({ where: { weekday: h.weekday }, update: {}, create: h });
 
-  if ((await db.loyaltyRule.count()) === 0) {
-    await db.loyaltyRule.createMany({
-      data: [
-        { name: 'Card complete', stampsRequired: 8, discountPercent: 20, validityDays: 90 },
-        { name: 'Second card complete', stampsRequired: 16, discountPercent: 50, validityDays: 90 },
-      ],
-    });
-  }
+  if ((await db.loyaltyRule.count()) === 0) await db.loyaltyRule.createMany({ data: INITIAL_LOYALTY_RULES });
 
   const email = (process.env.SEED_ADMIN_EMAIL ?? 'admin@neastudio.demo').toLowerCase();
   const password = process.env.SEED_ADMIN_PASSWORD;
@@ -219,6 +184,10 @@ async function seedDemo() {
 }
 
 async function main() {
+  // Safety: this script contains demo accounts with known passwords — never against the production database.
+  for (const name of ['DATABASE_URL', 'DIRECT_URL']) {
+    if (/neon\.tech/i.test(process.env[name] ?? '')) throw new Error(`Refusing to run the development seed: ${name} points to Neon. Use "npm run db:neon:seed" for production.`);
+  }
   await seedBase();
   if (process.env.SEED_DEMO !== 'false') await seedDemo();
   console.log('Seed complete.');
