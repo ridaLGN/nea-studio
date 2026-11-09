@@ -2,9 +2,12 @@ import { Router } from 'express';
 import multer from 'multer';
 import path from 'node:path';
 import { randomBytes } from 'node:crypto';
+import { mkdir } from 'node:fs/promises';
+import { put } from '@vercel/blob';
+import { env, isVercel } from '../config/env.js';
 import bcrypt from 'bcryptjs';
 import { z } from 'zod';
-import { prisma, parse, notFound, conflict, badRequest, audit, num, dec } from '../lib/core.js';
+import { prisma, parse, notFound, conflict, badRequest, audit, num, dec, AppError } from '../lib/core.js';
 import { isIsoDate, toDbDate, fromDbDate, todayLocal } from '../lib/time.js';
 import { emitAvailabilityChanged } from '../lib/realtime.js';
 import { authenticate, requirePermission, requireRole } from '../middleware/auth.js';
@@ -23,17 +26,35 @@ const changed = (employeeIds: string[]) => emitAvailabilityChanged({ dates: [], 
 // =====================================================================
 // Uploads (images only)
 // =====================================================================
+// Two storage backends:
+//  - Vercel Blob when BLOB_READ_WRITE_TOKEN is set (required on Vercel: function filesystems are read-only/ephemeral)
+//  - local disk (server/uploads) otherwise, for local development / classic servers
 export const UPLOAD_DIR = path.resolve('uploads');
+const useBlob = !!env.BLOB_READ_WRITE_TOKEN;
+// Vercel caps request bodies at 4.5 MB, so keep uploads under it there
+const MAX_UPLOAD = isVercel ? 4 * 1024 * 1024 : 5 * 1024 * 1024;
+const uploadName = (original: string) => `${Date.now()}-${randomBytes(6).toString('hex')}${path.extname(original).toLowerCase()}`;
 const upload = multer({
-  storage: multer.diskStorage({
-    destination: UPLOAD_DIR,
-    filename: (_req, file, cb) => cb(null, `${Date.now()}-${randomBytes(6).toString('hex')}${path.extname(file.originalname).toLowerCase()}`),
-  }),
-  limits: { fileSize: 5 * 1024 * 1024 },
+  storage: useBlob
+    ? multer.memoryStorage()
+    : multer.diskStorage({
+        // created lazily on first upload (never at import time, which would crash on a read-only filesystem)
+        destination: (_req, _file, cb) => mkdir(UPLOAD_DIR, { recursive: true }).then(() => cb(null, UPLOAD_DIR), (e) => cb(e as Error, UPLOAD_DIR)),
+        filename: (_req, file, cb) => cb(null, uploadName(file.originalname)),
+      }),
+  limits: { fileSize: MAX_UPLOAD },
   fileFilter: (_req, file, cb) => cb(null, /^image\/(jpeg|png|webp|avif)$/.test(file.mimetype)),
 });
-manageRouter.post('/uploads', requirePermission('services.manage'), upload.single('file'), (req, res) => {
-  if (!req.file) throw badRequest('An image file (jpeg, png, webp, avif — max 5 MB) is required');
+const uploadGuard = (_req: unknown, _res: unknown, next: () => void) => {
+  if (isVercel && !useBlob) throw new AppError(503, 'UPLOADS_NOT_CONFIGURED', 'Image uploads need Vercel Blob: add BLOB_READ_WRITE_TOKEN to the project environment variables');
+  next();
+};
+manageRouter.post('/uploads', requirePermission('services.manage'), uploadGuard, upload.single('file'), async (req, res) => {
+  if (!req.file) throw badRequest(`An image file (jpeg, png, webp, avif — max ${MAX_UPLOAD / 1024 / 1024} MB) is required`);
+  if (useBlob) {
+    const blob = await put(`uploads/${uploadName(req.file.originalname)}`, req.file.buffer, { access: 'public', contentType: req.file.mimetype, token: env.BLOB_READ_WRITE_TOKEN });
+    return res.status(201).json({ url: blob.url });
+  }
   res.status(201).json({ url: `/uploads/${req.file.filename}` });
 });
 

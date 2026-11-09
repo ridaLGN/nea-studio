@@ -12,6 +12,6 @@ export default defineConfig({
     fileParallelism: false, // integration tests share one database
     testTimeout: 30_000,
     hookTimeout: 60_000,
-    env: { ...env, DATABASE_URL: testDb, NODE_ENV: 'test', JOBS_ENABLED: 'false', SMTP_HOST: '', WHATSAPP_ACCESS_TOKEN: '' },
+    env: { ...env, DATABASE_URL: testDb, NODE_ENV: 'test', JOBS_ENABLED: 'false', SMTP_HOST: '', WHATSAPP_ACCESS_TOKEN: '', CRON_SECRET: 'test-cron-secret-0123456789', BLOB_READ_WRITE_TOKEN: '' },
   },
 });

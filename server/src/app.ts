@@ -4,7 +4,7 @@ import cors from 'cors';
 import { pinoHttp } from 'pino-http';
 import { Prisma } from '@prisma/client';
 import { env } from './config/env.js';
-import { AppError, logger, isOverlapViolation } from './lib/core.js';
+import { AppError, logger, isOverlapViolation, prisma } from './lib/core.js';
 import { optionalAuth } from './middleware/auth.js';
 import { publicRouter } from './routes/public.routes.js';
 import { authRouter } from './routes/auth.routes.js';
@@ -13,6 +13,8 @@ import { staffRouter } from './routes/staff.routes.js';
 import { adminRouter } from './routes/admin.routes.js';
 import { manageRouter, UPLOAD_DIR } from './routes/manage.routes.js';
 import { analyticsRouter } from './routes/analytics.routes.js';
+import { runJobsOnce } from './modules/notifications/jobs.js';
+import { timingSafeEqual } from 'node:crypto';
 
 export function createApp() {
   const app = express();
@@ -22,7 +24,25 @@ export function createApp() {
   app.use(express.json({ limit: '1mb' }));
   if (env.NODE_ENV !== 'test') app.use(pinoHttp({ logger, autoLogging: { ignore: (req) => req.url === '/api/health' } }));
 
-  app.get('/api/health', (_req, res) => res.json({ ok: true, time: new Date().toISOString() }));
+  // Health check including the database, so "API up but database down" is visible immediately
+  app.get('/api/health', async (_req, res) => {
+    try {
+      await prisma.$queryRaw`SELECT 1`;
+      res.json({ ok: true, db: 'up', time: new Date().toISOString() });
+    } catch {
+      res.status(503).json({ ok: false, db: 'down', time: new Date().toISOString() });
+    }
+  });
+
+  // Scheduled jobs (reminders, reward expiry). Locally they run on a timer (src/index.ts);
+  // on Vercel there is no long-running process, so a Vercel Cron calls this route instead.
+  app.get('/api/cron/jobs', async (req, res) => {
+    if (!env.CRON_SECRET) return res.status(503).json({ error: { code: 'CRON_NOT_CONFIGURED', message: 'CRON_SECRET is not set' } });
+    const expected = Buffer.from(`Bearer ${env.CRON_SECRET}`);
+    const given = Buffer.from(req.headers.authorization ?? '');
+    if (given.length !== expected.length || !timingSafeEqual(given, expected)) return res.status(401).json({ error: { code: 'UNAUTHORIZED', message: 'Invalid cron secret' } });
+    res.json({ ok: true, ...(await runJobsOnce()) });
+  });
   app.use('/uploads', express.static(UPLOAD_DIR, { maxAge: '7d', fallthrough: false }));
 
   app.use('/api/public', optionalAuth, publicRouter);

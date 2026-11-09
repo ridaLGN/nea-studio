@@ -11,6 +11,10 @@ initRealtime(server);
 server.listen(env.PORT, () => {
   logger.info(`NÉA STUDIO API listening on http://localhost:${env.PORT}`);
   for (const p of providerStatus()) if (!p.configured) logger.warn(`${p.channel} notifications not configured — messages will be logged as NOT_CONFIGURED`);
+  prisma.$queryRaw`SELECT 1`.then(
+    () => logger.info('Database connection OK'),
+    () => logger.error('DATABASE UNREACHABLE — every API call will fail. Is Docker Desktop running? Start the database with: docker compose up -d db'),
+  );
   startJobs();
 });
 

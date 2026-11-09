@@ -74,8 +74,9 @@ export class AppointmentsPage {
   constructor() {
     loadServices(this.api).then((s) => this.services.set(s));
     this.load();
-    const sub = inject(RealtimeService).appointments$.subscribe(() => this.load());
-    inject(DestroyRef).onDestroy(() => sub.unsubscribe());
+    const rt = inject(RealtimeService);
+    const subs = [rt.appointments$.subscribe(() => this.load()), rt.availability$.subscribe(() => this.load())];
+    inject(DestroyRef).onDestroy(() => subs.forEach((s) => s.unsubscribe()));
   }
   reset() {
     this.pageNo = 1;
